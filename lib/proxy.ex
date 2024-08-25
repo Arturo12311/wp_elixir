@@ -39,30 +39,30 @@ defmodule Proxy do
 
   def do_manage_convo(client, server) do
     tasks = [
-      Task.async(fn -> do_manage_stream(client, server, <<>>) end),
-      Task.async(fn -> do_manage_stream(server, client, <<>>) end)
+      Task.async(fn -> do_manage_stream(client, server) end),
+      Task.async(fn -> do_manage_stream(server, client) end)
     ]
     Task.await_many(tasks, :infinity)
   end
 
-  def do_manage_stream(reader, writer, buffer) do
+  def do_manage_stream(reader, writer) do
     case :gen_tcp.recv(reader, 0) do
       {:ok, data} ->
-        buffer = process_buffer(writer, <<buffer::binary, data::binary>>)
-        do_manage_stream(reader, writer, buffer)
+        :gen_tcp.send(writer, data)
+        do_manage_stream(reader, writer)
       {:error, :closed} ->
         :ok
     end
   end
 
-  def process_buffer(writer, <<_::32, payload_length::little-32, _::binary>> = buffer) do
-    total_length = 25 + payload_length
-    if byte_size(buffer) >= total_length do
-      <<message::binary-size(total_length), rest::binary>> = buffer
-      :gen_tcp.send(writer, message)
-      process_buffer(writer, rest)
-    end
-    else
-      buffer
-    end
+  # def process_buffer(writer, <<_::32, payload_length::little-32, _::binary>> = buffer) do
+  #   total_length = 25 + payload_length
+  #   if byte_size(buffer) >= total_length do
+  #     <<message::binary-size(total_length), rest::binary>> = buffer
+  #     :gen_tcp.send(writer, message)
+  #     process_buffer(writer, rest)
+  #   end
+  #   else
+  #     buffer
+  #   end
 end
